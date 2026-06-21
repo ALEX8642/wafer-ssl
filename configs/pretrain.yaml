@@ -1,0 +1,29 @@
+# pretrain.yaml — SimCLR pretraining hyperparameters
+#
+# Run: python -m wafer_ssl.pretrain --config configs/pretrain.yaml
+#
+# After pretraining completes, copy outputs/pretrained_backbone.pt to the
+# wafer-defect-classifier repo and set backbone_ckpt_path in baseline.yaml.
+
+# --- paths (must match your wafer-defect-classifier data location) ---
+data_root: /home/alex8642/wafer-classifier/wafer-defect-classifier/data/raw
+output_dir: outputs
+
+# --- hardware ---
+device: auto
+num_workers: 4
+batch_size: 256       # large batch is critical for NT-Xent (more negatives per step)
+
+# --- SimCLR hyperparameters ---
+pretrain_epochs: 200
+temperature: 0.07     # NT-Xent temperature; 0.07 is the SimCLR paper default
+proj_dim: 128         # projection head output dimension
+proj_hidden: 512      # projection head hidden dimension
+
+# --- augmentation ---
+crop_min: 0.85        # minimum random crop scale (0.85–1.0 avoids cutting edge defects)
+blur_prob: 0.5        # probability of applying Gaussian blur per view
+
+# --- architecture ---
+arch: resnet18        # backbone to pretrain (must match the finetune config)
+input_size: 224

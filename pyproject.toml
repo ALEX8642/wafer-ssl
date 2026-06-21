@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wafer-ssl"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    # wafer-defect-classifier must be installed first (not on PyPI — local editable install):
+    #   pip install -e /path/to/wafer-defect-classifier
+    "torch>=2.0",
+    "torchvision>=0.15",
+    "pandas",
+    "numpy",
+    "scikit-learn",
+    "tqdm",
+    "pyyaml",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts   = "-v"
