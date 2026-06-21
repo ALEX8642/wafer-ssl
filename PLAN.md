@@ -131,10 +131,15 @@ Total: ~8–10 hours unattended on 5090.
 
 ## Verification checkpoints
 
-1. **Pretraining convergence:** NT-Xent loss should drop from ~0.3–0.5 → ~0.15–0.20 over 200 epochs.
-   (Wafer maps are simple binary patterns — the contrastive task is easier than ImageNet,
-   so loss floor is much lower than the ~5.0 cited in the SimCLR paper. This is expected.)
-   If loss is still above 0.30 after epoch 100, augmentations may be too weak — try crop_min: 0.70.
+1. **Pretraining convergence (read the curve, not the floor):** A *very low, flat*
+   NT-Xent loss is a red flag, not success. The first attempt (mild `crop_min: 0.85`)
+   sat near ~0.46 from epoch 1 — the augmentations preserved the global wafer outline,
+   a near-unique per-map fingerprint, so the task was trivially solvable by matching
+   geometry instead of defect structure. Fixed with aggressive crop + cutout
+   (`crop_min: 0.2`). A healthy run should *start materially higher* than 0.46 and show
+   a clear downward trend as the backbone learns local defect texture. If it still
+   starts very low and stays flat, augmentation is still too weak — do not trust the
+   backbone; strengthen augmentation and re-run.
 
 2. **Phase Q vs Phase F:** The pretrained backbone should reach ≥0.9265 val F1 (Phase F best)
    in fewer epochs. If it fails to match Phase F, the backbone features aren't transferring —

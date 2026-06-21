@@ -48,27 +48,13 @@ def evaluate_ensemble(cfg: WaferConfig, checkpoint_paths: list[Path]) -> None:
 
     print(f"Ensemble evaluation: {len(checkpoint_paths)} model(s)")
 
-    # Load calibration temperature from the first checkpoint's output dir
-    # (all models in an ensemble should share the same calibration)
-    temperature = 1.0
-    temp_path = Path(checkpoint_paths[0]).parent / "temperature.json"
-    if temp_path.exists():
-        with open(temp_path) as f:
-            temperature = float(json.load(f)["temperature"])
-        print(f"Temperature: T={temperature:.4f}  (from {temp_path})")
-    else:
-        print("Temperature: T=1.0  (temperature.json not found — run wafer.calibrate)")
-
-    # Load per-class thresholds from the first checkpoint's output dir
-    thresholds: dict = {}
-    thresh_path = Path(checkpoint_paths[0]).parent / "thresholds.json"
-    if thresh_path.exists():
-        with open(thresh_path) as f:
-            thresholds = json.load(f)
-        print(f"Thresholds: {len(thresholds)} class thresholds loaded")
-
-    # Load each model
+    # Load each model AND its OWN calibration temperature. Temperature is a
+    # per-model property: each seed is calibrated independently and writes its
+    # own temperature.json next to its checkpoint. Applying one model's T to all
+    # of them mis-scales the others' softmaxes before averaging, distorting the
+    # ensemble probabilities.
     models = []
+    temperatures: list[float] = []
     for ckpt_path in checkpoint_paths:
         ckpt = torch.load(ckpt_path, map_location=cfg.device, weights_only=False)
         saved_cfg = ckpt.get("cfg", {})
@@ -81,8 +67,28 @@ def evaluate_ensemble(cfg: WaferConfig, checkpoint_paths: list[Path]) -> None:
         model.load_state_dict(ckpt["model_state_dict"])
         model.eval()
         models.append(model)
+
+        # This model's own temperature (default 1.0 if not yet calibrated)
+        t = 1.0
+        temp_path = Path(ckpt_path).parent / "temperature.json"
+        if temp_path.exists():
+            with open(temp_path) as f:
+                t = float(json.load(f)["temperature"])
+        temperatures.append(t)
         print(f"  Loaded: {ckpt_path}  (epoch {ckpt.get('epoch','?')}, "
-              f"val F1 {ckpt.get('val_macro_f1', float('nan')):.4f})")
+              f"val F1 {ckpt.get('val_macro_f1', float('nan')):.4f}, T={t:.4f})")
+
+    # Per-class decision thresholds are applied to the AVERAGED ensemble probs.
+    # Tuning thresholds on the ensemble's own val output would be ideal; absent
+    # that, we reuse the first model's thresholds as a reasonable proxy decision
+    # rule (they act on calibrated probabilities, not raw logits).
+    thresholds: dict = {}
+    thresh_path = Path(checkpoint_paths[0]).parent / "thresholds.json"
+    if thresh_path.exists():
+        with open(thresh_path) as f:
+            thresholds = json.load(f)
+        print(f"Thresholds: {len(thresholds)} class thresholds loaded (from "
+              f"{thresh_path}; applied to ensemble-averaged probs)")
 
     idx_to_class = {v: k for k, v in class_to_idx.items()}
     class_names = [idx_to_class[i] for i in range(num_classes)]
@@ -96,7 +102,7 @@ def evaluate_ensemble(cfg: WaferConfig, checkpoint_paths: list[Path]) -> None:
     for inputs, targets in test_loader:
         all_targets.extend(targets.numpy())
         for m_idx, model in enumerate(models):
-            probs = tta_predict(model, inputs, cfg.device, temperature)
+            probs = tta_predict(model, inputs, cfg.device, temperatures[m_idx])
             per_model_probs[m_idx].append(probs)
 
     # Stack each model's probabilities → (N, num_classes)

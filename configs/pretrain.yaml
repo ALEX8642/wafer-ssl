@@ -11,7 +11,7 @@ output_dir: outputs
 
 # --- hardware ---
 device: auto
-num_workers: 4
+num_workers: 12       # augmentation (resize+blur) is CPU-bound; raise to keep the GPU fed
 batch_size: 256       # large batch is critical for NT-Xent (more negatives per step)
 
 # --- SimCLR hyperparameters ---
@@ -21,7 +21,9 @@ proj_dim: 128         # projection head output dimension
 proj_hidden: 512      # projection head hidden dimension
 
 # --- augmentation ---
-crop_min: 0.85        # minimum random crop scale (0.85–1.0 avoids cutting edge defects)
+crop_min: 0.2         # aggressive min crop scale — 0.85 left the global wafer outline
+                      # intact, which let SimCLR cheat by matching geometry instead of
+                      # defect structure (loss collapsed to ~0). 0.2 forces local texture.
 blur_prob: 0.5        # probability of applying Gaussian blur per view
 
 # --- architecture ---

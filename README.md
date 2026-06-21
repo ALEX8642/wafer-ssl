@@ -58,9 +58,17 @@ python -m wafer_ssl.pretrain --config configs/pretrain.yaml
 Edit `configs/pretrain.yaml` first to set `data_root` to your LSWMD.pkl location.
 
 Saves `outputs/pretrained_backbone.pt` after each improvement in NT-Xent loss.
-Prints loss every 10 epochs — expect ~0.3–0.5 at epoch 1 dropping to ~0.15–0.20 by epoch 200.
-(Wafer maps are binary spatial patterns, not natural images — the contrastive task is easier
-than ImageNet, so NT-Xent loss is lower than the ~5.0 quoted in the SimCLR paper.)
+Prints loss every 10 epochs.
+
+**Watch the loss curve — it's the diagnostic.** A first attempt with a mild crop
+(`crop_min: 0.85`) produced a loss that started very low (~0.46) and stayed flat.
+That is the *symptom of a trivially-solvable contrastive task*: the augmentations
+preserved the global wafer outline, which is a near-unique per-map fingerprint, so
+the backbone matched positive pairs by geometry instead of learning defect structure.
+The fix is aggressive cropping + cutout (`crop_min: 0.2`, see `configs/pretrain.yaml`),
+which forces the model to compare local defect texture. If the loss *still* starts
+very low and barely moves, the task is still too easy — strengthen augmentation
+before trusting the backbone.
 
 ### Phase Q — Fine-tune on pretrained backbone
 

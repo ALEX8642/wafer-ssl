@@ -90,9 +90,14 @@ class _WaferAugment:
         if random.random() < 0.5:
             tensor = torch.flip(tensor, dims=[1])
 
-        # Random crop (85–100% of image) → resize back
-        # crop_min=0.85 avoids cutting ring/edge patterns that extend to the border
-        if random.random() < 0.8:
+        # Random-resized crop → resize back.
+        # NOTE: crop_min defaults to 0.2 (aggressive), NOT 0.85. A mild 0.85 crop
+        # preserves the global wafer outline, which is a near-unique per-map
+        # fingerprint that survives D4/flip — letting the backbone solve the
+        # contrastive task by matching wafer geometry instead of defect structure
+        # (the symptom is NT-Xent loss that starts near-zero and stays flat).
+        # Aggressive crops force comparison of local defect texture instead.
+        if random.random() < 0.9:
             H, W = tensor.shape[1], tensor.shape[2]
             scale = random.uniform(self.crop_min, 1.0)
             ch = max(1, int(H * scale))
@@ -108,6 +113,19 @@ class _WaferAugment:
         if random.random() < self.blur_prob:
             sigma = random.uniform(0.5, 2.0)
             tensor = _gaussian_blur(tensor, sigma)
+
+        # Cutout (random erasing) — blank a random patch to further destroy the
+        # global-outline cue and force reliance on local defect morphology.
+        # Set the patch to the off-wafer one-hot (channel 0 = 1, others = 0) so
+        # it stays a valid encoding rather than an all-zero non-one-hot pixel.
+        if random.random() < 0.5:
+            H, W = tensor.shape[1], tensor.shape[2]
+            eh = random.randint(H // 8, H // 3)
+            ew = random.randint(W // 8, W // 3)
+            top  = random.randint(0, H - eh)
+            left = random.randint(0, W - ew)
+            tensor[:, top : top + eh, left : left + ew] = 0.0
+            tensor[0, top : top + eh, left : left + ew] = 1.0  # mark as off-wafer
 
         return tensor
 
@@ -293,14 +311,22 @@ def pretrain(
         drop_last=True,   # NT-Xent assumes fixed batch size
     )
 
-    # --- build backbone (no CBAM, no classification head) ---
+    # --- build backbone (WITH CBAM, no classification head) ---
     # Reuse build_model for architecture consistency; strip the FC head.
+    # CRITICAL: cbam MUST match the fine-tune config (Phase F uses cbam=true).
+    # build_model wraps each ResNet stage as Sequential(stage, CBAM) when
+    # cbam=true, which renames keys (layer1.0.* -> layer1.0.0.*). If we
+    # pretrained with cbam=false, those keys would NOT match the fine-tune
+    # model and load_state_dict(strict=False) would silently drop ~95% of the
+    # backbone. Pretraining with cbam=true keeps keys aligned AND lets the
+    # attention modules benefit from the unlabeled data.
     cfg_stub = _WaferConfig(
         data_root=data_root,
         output_dir=output_dir,
         device=device,
         arch=arch,
-        cbam=False,         # pretraining without CBAM — task-agnostic features
+        cbam=True,          # MUST match fine-tune config (baseline.yaml cbam: true)
+        cbam_reduction=16,  # MUST match baseline.yaml cbam_reduction
         pretrained=False,   # train from scratch on wafer domain
     )
     backbone = build_model(cfg_stub, num_classes=1)
@@ -392,7 +418,7 @@ if __name__ == "__main__":
         default=Path(__file__).resolve().parents[2] / "configs" / "pretrain.yaml",
         help="YAML config for pretraining (default: configs/pretrain.yaml)",
     )
-    parser.add_argument("--epochs",      type=int,   default=None)
+    parser.add_argument("--epochs",      type=int,   default=None, dest="pretrain_epochs")
     parser.add_argument("--batch-size",  type=int,   default=None, dest="batch_size")
     parser.add_argument("--temperature", type=float, default=None)
     parser.add_argument("--proj-dim",    type=int,   default=None, dest="proj_dim")

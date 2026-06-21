@@ -50,20 +50,49 @@ else
   exit 1
 fi
 
-# --- Step 3: Phase Q — train seed 42 (default) ---
-echo ""
-echo "[Phase Q] Training seed 42 with pretrained backbone (~40 min)..."
-(cd "${WAFER_DIR}" && "${PYTHON}" -m wafer.train)
+# --- Step 2b: verify the architecture config matches what the backbone was
+#     pretrained against. The SimCLR backbone is built with cbam: true; loading
+#     it into a cbam: false model (or vice-versa) silently discards ~95% of the
+#     weights. Also enforce the Phase F winning config (focal loss).
+echo "[Phase Q] Verifying baseline.yaml architecture config..."
+require_yaml() {  # require_yaml <key> <expected-value>
+  if ! grep -Eq "^[[:space:]]*$1:[[:space:]]*$2([[:space:]]|#|$)" "${YAML}"; then
+    echo "ERROR: ${YAML} must set '$1: $2' for Phase Q (matches the pretrained"
+    echo "       backbone + Phase F config). Current line:"
+    grep -E "^[[:space:]]*$1:" "${YAML}" || echo "       ($1 not found)"
+    exit 1
+  fi
+}
+require_yaml cbam true
+require_yaml loss focal
+echo "[Phase Q] Config OK: cbam=true, loss=focal."
 
-echo "[Phase Q] Calibrating..."
-(cd "${WAFER_DIR}" && "${PYTHON}" -m wafer.calibrate)
+# --- Step 3: Phase Q — train seed 42 (default). Resumable: skip if done. ---
+echo ""
+if [[ -f "${WAFER_DIR}/outputs/best.pt" ]]; then
+  echo "[Phase Q] outputs/best.pt exists — skipping seed-42 training (resume)."
+else
+  echo "[Phase Q] Training seed 42 with pretrained backbone (~40 min)..."
+  (cd "${WAFER_DIR}" && "${PYTHON}" -m wafer.train)
+fi
+
+if [[ -f "${WAFER_DIR}/outputs/temperature.json" ]]; then
+  echo "[Phase Q] temperature.json exists — skipping calibration (resume)."
+else
+  echo "[Phase Q] Calibrating..."
+  (cd "${WAFER_DIR}" && "${PYTHON}" -m wafer.calibrate)
+fi
 
 echo "[Phase Q] Evaluating..."
 (cd "${WAFER_DIR}" && "${PYTHON}" -m wafer.evaluate)
 
-# --- Step 4: Phase R — three more seeds ---
+# --- Step 4: Phase R — three more seeds. Resumable: skip seeds already done. ---
 for SEED in 7 123 456; do
   echo ""
+  if [[ -f "${WAFER_DIR}/outputs/seed${SEED}/best.pt" ]]; then
+    echo "[Phase R] seed${SEED}/best.pt exists — skipping (resume)."
+    continue
+  fi
   echo "[Phase R] Training seed ${SEED}..."
   (cd "${WAFER_DIR}" && "${PYTHON}" -m wafer.train \
     --seed "${SEED}" \
