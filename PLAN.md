@@ -131,8 +131,10 @@ Total: ~8–10 hours unattended on 5090.
 
 ## Verification checkpoints
 
-1. **Pretraining convergence:** NT-Xent loss should drop from ~5.0 → ~0.5–1.5 over 200 epochs.
-   If it plateaus above 3.0 after epoch 50, reduce temperature to 0.05 or increase batch size.
+1. **Pretraining convergence:** NT-Xent loss should drop from ~0.3–0.5 → ~0.15–0.20 over 200 epochs.
+   (Wafer maps are simple binary patterns — the contrastive task is easier than ImageNet,
+   so loss floor is much lower than the ~5.0 cited in the SimCLR paper. This is expected.)
+   If loss is still above 0.30 after epoch 100, augmentations may be too weak — try crop_min: 0.70.
 
 2. **Phase Q vs Phase F:** The pretrained backbone should reach ≥0.9265 val F1 (Phase F best)
    in fewer epochs. If it fails to match Phase F, the backbone features aren't transferring —

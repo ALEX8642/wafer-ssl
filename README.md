@@ -58,7 +58,9 @@ python -m wafer_ssl.pretrain --config configs/pretrain.yaml
 Edit `configs/pretrain.yaml` first to set `data_root` to your LSWMD.pkl location.
 
 Saves `outputs/pretrained_backbone.pt` after each improvement in NT-Xent loss.
-Prints loss every 10 epochs — expect ~5.0 at epoch 1 dropping to ~0.5–1.5 by epoch 200.
+Prints loss every 10 epochs — expect ~0.3–0.5 at epoch 1 dropping to ~0.15–0.20 by epoch 200.
+(Wafer maps are binary spatial patterns, not natural images — the contrastive task is easier
+than ImageNet, so NT-Xent loss is lower than the ~5.0 quoted in the SimCLR paper.)
 
 ### Phase Q — Fine-tune on pretrained backbone
 
