@@ -92,7 +92,11 @@ echo "[Phase Q] Generating Grad-CAM overlays..."
 (cd "${WAFER_DIR}" && "${PYTHON}" -m wafer.explain)
 
 # --- Step 4: Phase R — three more seeds. Resumable: skip seeds already done. ---
-for SEED in 7 123 456; do
+# seed7 was replaced by seed99: its first run stalled at val F1 0.9029 (peaked
+# epoch 9, no gain through 19) and dragged the ensemble. patience bumped 10 -> 15
+# because the strong seeds peaked late (seed123 @39/40, seed456 @36) — 10 was
+# too tight and risks guillotining a still-climbing run.
+for SEED in 99 123 456; do
   echo ""
   if [[ -f "${WAFER_DIR}/outputs/seed${SEED}/best.pt" ]]; then
     echo "[Phase R] seed${SEED}/best.pt exists — skipping (resume)."
@@ -101,6 +105,7 @@ for SEED in 7 123 456; do
   echo "[Phase R] Training seed ${SEED}..."
   (cd "${WAFER_DIR}" && "${PYTHON}" -m wafer.train \
     --seed "${SEED}" \
+    --patience 15 \
     --output-dir "outputs/seed${SEED}")
 done
 
@@ -110,7 +115,7 @@ echo "[Phase R] Ensemble evaluation (TTA×8, 4 models)..."
 (cd "${SSL_DIR}" && "${PYTHON}" -m wafer_ssl.ensemble \
   --checkpoints \
     "${WAFER_DIR}/outputs/best.pt" \
-    "${WAFER_DIR}/outputs/seed7/best.pt" \
+    "${WAFER_DIR}/outputs/seed99/best.pt" \
     "${WAFER_DIR}/outputs/seed123/best.pt" \
     "${WAFER_DIR}/outputs/seed456/best.pt" \
   --config "${YAML}" \
