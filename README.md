@@ -118,6 +118,36 @@ python -m wafer_ssl.ensemble \
 | Phase P+Q (SimCLR + fine-tune) | — | — |
 | Phase R (4-model ensemble) | — | — |
 
+### Phase P — SimCLR pretraining loss
+
+![SimCLR NT-Xent loss curve](assets/pretrain_loss.png)
+
+NT-Xent loss over 638k unlabeled maps, batch 256, cosine-decayed LR. The curve
+descends smoothly from **3.83 → ~1.49** — the signature of a non-trivial
+contrastive task. The earlier mild-crop attempt sat flat near 0.46 from epoch 1
+because the augmentations preserved the global wafer outline (a per-map
+fingerprint), letting the model match positives by geometry instead of defect
+structure. The aggressive-crop + cutout fix (`crop_min: 0.2`) broke that shortcut.
+
+*Regenerate from the full run before publishing:*
+```bash
+python -m wafer_ssl.pretrain --config configs/pretrain.yaml | tee outputs/pretrain.log
+python scripts/plot_pretrain_loss.py --log outputs/pretrain.log
+```
+
+### Phase Q diagnostics (added after fine-tuning on the 5090)
+
+`scripts/run_phases_qr.sh` regenerates these for the SSL-fine-tuned model in the
+base repo's `outputs/`. After the run, copy the ones you want to show here:
+```bash
+cp ../wafer-defect-classifier/outputs/confusion_matrix.png      assets/q_confusion_matrix.png
+cp ../wafer-defect-classifier/outputs/grad_cam/gradcam_loc.png  assets/q_gradcam_loc.png
+```
+Then reference them below (placeholders until the run completes):
+
+<!-- ![Phase Q confusion matrix](assets/q_confusion_matrix.png) -->
+<!-- ![Phase Q Grad-CAM (Loc)](assets/q_gradcam_loc.png) -->
+
 ---
 
 ## References

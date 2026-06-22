@@ -86,6 +86,11 @@ fi
 echo "[Phase Q] Evaluating..."
 (cd "${WAFER_DIR}" && "${PYTHON}" -m wafer.evaluate)
 
+# Grad-CAM overlays for the SSL-fine-tuned model (feeds the wafer-ssl README
+# Phase Q diagnostics). Writes outputs/grad_cam/gradcam_*.png.
+echo "[Phase Q] Generating Grad-CAM overlays..."
+(cd "${WAFER_DIR}" && "${PYTHON}" -m wafer.explain)
+
 # --- Step 4: Phase R — three more seeds. Resumable: skip seeds already done. ---
 for SEED in 7 123 456; do
   echo ""
