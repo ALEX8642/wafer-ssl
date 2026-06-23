@@ -47,7 +47,9 @@ echo "  seed-42 baseline        : ${SEED42_CKPT}"
 # --- Train seeds 99/123/456 from RANDOM init. Resumable: skip seeds already done.
 #     patience mirrors the SSL run exactly (99->15, 123->10, 456->10). ---
 train_scratch() {  # train_scratch <seed> <patience>
-  local seed="$1" pat="$2" dir="outputs/scratch_seed${seed}"
+  local seed="$1"
+  local pat="$2"
+  local dir="outputs/scratch_seed${seed}"
   echo ""
   if [[ -f "${WAFER_DIR}/${dir}/best.pt" ]]; then
     echo "[control] ${dir}/best.pt exists — skipping (resume)."
