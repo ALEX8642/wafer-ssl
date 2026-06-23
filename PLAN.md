@@ -29,6 +29,7 @@ no labels, no noise.
 | none | 0.99 | — | ≈0 |
 
 **Realistic target after this plan: 0.94–0.96.** We document wherever we land.
+→ **Achieved: 0.9423** (4-model SimCLR ensemble). See [Outcome](#outcome) below.
 
 ---
 
@@ -169,3 +170,24 @@ What would realistically break through to 0.98+:
 - Expert re-annotation of ambiguous Loc/Scratch border cases
 - Mixture-of-experts: separate specialist heads for tail vs. common classes
 - ViT-based backbone at higher input resolution (52×52 → 224×224 via bilinear)
+
+---
+
+## Outcome
+
+| Configuration | Test macro-F1 | Balanced acc |
+|---|---|---|
+| Phase F baseline (single model, seed 42) | 0.9157 | 0.9085 |
+| From-scratch 4-seed ensemble (control) | 0.9339 | 0.9348 |
+| **SimCLR + 4-seed ensemble** | **0.9423** | **0.9427** |
+
+SimCLR pretraining contributed a **modest but consistent +0.8pp** (SimCLR ensemble
+0.9423 vs from-scratch control 0.9339; the SimCLR model beat its from-scratch twin on
+3 of 4 seeds and was ≥ on every class). The larger lever was ensembling. Single-model
+SSL was within noise of the baseline, so the headline gain is honestly attributed:
+~+1.8pp ensembling, ~+0.8pp self-supervision. We fell short of the 0.98 stretch goal
+(tail-class scarcity, as predicted), landing squarely in the forecast 0.94–0.96 band.
+
+The control matters: without it, the ensemble's 0.9423 could not be attributed to
+SSL at all. Running `scripts/run_control_ensemble.sh` (from-scratch, same seeds and
+config) is what makes the SSL claim defensible rather than speculative.
