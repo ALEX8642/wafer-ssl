@@ -93,7 +93,8 @@ cd /path/to/wafer-defect-classifier
 
 ```bash
 # In wafer-defect-classifier (same backbone_ckpt_path, different seeds):
-.venv/bin/python -m wafer.train --seed 7   --output-dir outputs/seed7
+# (seed 99 replaced an original seed-7 run that stalled during training — see git history)
+.venv/bin/python -m wafer.train --seed 99  --output-dir outputs/seed99
 .venv/bin/python -m wafer.train --seed 123 --output-dir outputs/seed123
 .venv/bin/python -m wafer.train --seed 456 --output-dir outputs/seed456
 
@@ -101,7 +102,7 @@ cd /path/to/wafer-defect-classifier
 python -m wafer_ssl.ensemble \
   --checkpoints \
     /path/to/wafer-defect-classifier/outputs/best.pt \
-    /path/to/wafer-defect-classifier/outputs/seed7/best.pt \
+    /path/to/wafer-defect-classifier/outputs/seed99/best.pt \
     /path/to/wafer-defect-classifier/outputs/seed123/best.pt \
     /path/to/wafer-defect-classifier/outputs/seed456/best.pt \
   --config /path/to/wafer-defect-classifier/configs/baseline.yaml \
